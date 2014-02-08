@@ -9,39 +9,49 @@ class LandUnit < ActiveRecord::Base
 
   def self.read_shapefile(shapefile_path)
     srs_database = RGeo::CoordSys::SRSDatabase::ActiveRecordTable.new
-
     factory = RGeo::Geos.factory(:srs_database => srs_database, :srid => 96805)
-    preferred_location_factory = LandUnit.rgeo_factory_for_column(:location)
-    preferred_movement_factory = LandUnit.rgeo_factory_for_column(:movement)
 
     RGeo::Shapefile::Reader.open(shapefile_path, factory: factory) do |file|
         # lu = LandUnit.find_or_create_by(name: )
       file.each do |record|
-        casting = RGeo::Feature.cast(Factories::GEO.point(
-          record.attributes["LONGITUDE"],
-          record.attributes["LATITUDE"]),
-          preferred_location_factory,
-          :project)
-
-        cartesian_cast = RGeo::Feature.cast(record.geometry,
-          preferred_movement_factory,
-          :project)
-
-        if cartesian_cast
-          land_unit = LandUnit.new(
-            name: "#{record.attributes['CLIENT_NAM']} \
-            #{record.attributes['CLIENT_NAM']} \
-            #{record.attributes['FIELD_NAME']}",
-            yield_vol: record.attributes["VRYIELDVOL"]
-          )
-          land_unit.location = casting
-          land_unit.movement = cartesian_cast[0]
-          land_unit.save
-        end
+        create_land_unit(record)
       end
     end
   end
 
+  def self.location_cast(record)
+    preferred_location_factory = LandUnit.rgeo_factory_for_column(:location)
+
+    RGeo::Feature.cast(Factories::GEO.point(
+      record.attributes["LONGITUDE"],
+      record.attributes["LATITUDE"]),
+      preferred_location_factory,
+      :project
+    )
+  end
+  def self.movement_cast(record)
+    preferred_movement_factory = LandUnit.rgeo_factory_for_column(:movement)
+
+    RGeo::Feature.cast(record.geometry,
+      preferred_movement_factory,
+      :project
+    )
+  end
+
+  def self.create_land_unit(record)
+    @movement_cast ||= movement_cast(record)
+    if @movement_cast
+      land_unit = LandUnit.new(
+        name: "#{record.attributes['CLIENT_NAM']} \
+        #{record.attributes['CLIENT_NAM']} \
+        #{record.attributes['FIELD_NAME']}",
+        yield_vol: record.attributes["VRYIELDVOL"]
+      )
+      land_unit.location = location_cast(record)
+      land_unit.movement = @movement_cast[0]
+      land_unit.save
+    end
+  end
 
   # Project a latitude, longitude point to X,Y coordinates in our projection
   def self.projected_point(coordinate)
@@ -58,6 +68,8 @@ class LandUnit < ActiveRecord::Base
     Factories::GEO.project(polygon)
   end
 
+  # Returns hash of location longitude-latitude
+  #Ex {latitude: 1, longitude: 2}
   def coordinate
     @coordinate ||= {longitude: location.x, latitude: location.y}
   end
