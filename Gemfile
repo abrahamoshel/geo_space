@@ -20,6 +20,12 @@ gem 'unicorn'
 gem 'unicorn-rails'
 gem 'zurb-foundation', '~> 4.3.2'
 
+gem 'squeel'
+gem 'activerecord-postgis-adapter'
+gem "rgeo"
+gem "rgeo-shapefile"
+gem 'ffi-geos'
+
 group :production do
   gem 'rails_12factor'
 end
@@ -36,6 +42,7 @@ end
 group :development, :test do
   gem 'factory_girl_rails'
   gem 'rspec-rails'
+  gem 'pry-rails'
 end
 
 group :test do

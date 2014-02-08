@@ -1,0 +1,21 @@
+Column Descriptions and Units
+
+
+1:  vrYieldVol (vrYieldVolumePerArea)
+Yield Volume Per Area
+bushel acre (bu/ac)
+
+
+2:  Time (Time)
+Delta Time
+second (sec)
+
+
+3:  Latitude (Latitude)
+Latitude
+arc degree (deg)
+
+
+4:  Longitude (Longitude)
+Longitude
+arc degree (deg)
