@@ -11,8 +11,8 @@ class LandUnit < ActiveRecord::Base
     srs_database = RGeo::CoordSys::SRSDatabase::ActiveRecordTable.new
 
     factory = RGeo::Geos.factory(:srs_database => srs_database, :srid => 96805)
-    cartesian_preferred_factory = LandUnit.rgeo_factory_for_column(:location)
-    cartesian_factory = LandUnit.rgeo_factory_for_column(:movement)
+    preferred_location_factory = LandUnit.rgeo_factory_for_column(:location)
+    preferred_movement_factory = LandUnit.rgeo_factory_for_column(:movement)
 
     RGeo::Shapefile::Reader.open(shapefile_path, factory: factory) do |file|
         # lu = LandUnit.find_or_create_by(name: )
@@ -20,23 +20,23 @@ class LandUnit < ActiveRecord::Base
         casting = RGeo::Feature.cast(Factories::GEO.point(
           record.attributes["LONGITUDE"],
           record.attributes["LATITUDE"]),
-          cartesian_preferred_factory,
+          preferred_location_factory,
           :project)
 
         cartesian_cast = RGeo::Feature.cast(record.geometry,
-          cartesian_factory,
+          preferred_movement_factory,
           :project)
 
         if cartesian_cast
-          lu = LandUnit.new(
+          land_unit = LandUnit.new(
             name: "#{record.attributes['CLIENT_NAM']} \
             #{record.attributes['CLIENT_NAM']} \
             #{record.attributes['FIELD_NAME']}",
             yield_vol: record.attributes["VRYIELDVOL"]
           )
-          lu.location = casting
-          lu.movement = cartesian_cast[0]
-          lu.save
+          land_unit.location = casting
+          land_unit.movement = cartesian_cast[0]
+          land_unit.save
         end
       end
     end
@@ -59,25 +59,24 @@ class LandUnit < ActiveRecord::Base
   end
 
   def coordinate
-    @coordinate ||= begin
-      {longitude: location.x, latitude: location.y}
-    end
+    @coordinate ||= {longitude: location.x, latitude: location.y}
   end
+
   # Returns array of latitude-longitude hashes
   # Ex: [{latitude: 1, longitude: 2}, {latitude: 3, longitude: 4}]
-  def coordinates
-    @coordinates ||= begin
+  def movements
+    @movements ||= begin
       geo_points = LandUnit::Factories::GEO.unproject(movement).exterior_ring.points
-      coordinates = geo_points.inject(Set.new) do |set, point|
+      movements = geo_points.inject(Set.new) do |set, point|
         set.add({longitude: point.longitude, latitude: point.latitude})
       end
-      coordinates.to_a
+      movements.to_a
     end
   end
 
   # Update the polygon stored in the database by sending in array of latitude, longitude points
   # Ex: [{latitude: 1, longitude: 2}, {latitude: 3, longitude: 4}]
-  def coordinates=(coordinates)
-    self.location = LandUnit.projected_polygon(coordinates).as_text
+  def movements=(movements)
+    self.location = LandUnit.projected_polygon(movements).as_text
   end
 end
